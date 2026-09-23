@@ -1,0 +1,1 @@
+{"styles":{"buy":"a","tick":"c","stake":"b","symbol":"a","duration":"b","tradeType":"b","digitStats":"b","prediction":"c","contractMode":"b"},"order":["tradeType","symbol","tick","digitStats","contractMode","stake","duration","prediction","buy"],"buy":{"pinned":true}}
