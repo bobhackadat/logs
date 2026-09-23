@@ -19,6 +19,8 @@ import { ConfigurableDigitsControls, ConfigurableBuyButton } from './configurabl
 import { TradeTypeChips } from '@/components/custom/trade-type-chips';
 import { SymbolSelector } from '@/components/custom/symbol-selector';
 import { ThemeToggle } from '@/components/custom/theme-toggle';
+import { EvenOddDashboard } from '@/components/even-odd-dashboard';
+import type { UseEvenOddAutoTraderReturn } from '@/hooks/use-even-odd-auto-trader';
 import type {
   AuthState,
   DerivAccount,
@@ -83,6 +85,10 @@ export interface DigitsViewProps {
   lastDigit: number | null;
   digitStats: DigitStats;
   pipSize: number;
+  /** Last-10-tick rolling window (live WebSocket ticks) for the engine. */
+  enginePrices: number[];
+  /** Latest tick epoch — identity key for per-tick engine loops. */
+  currentTickEpoch: number | null;
 
   // Trade controls
   tradeType: TradeType;
@@ -103,6 +109,20 @@ export interface DigitsViewProps {
   buyResult: BuyResult | null;
   buyError: string | null;
   clearBuyResult: () => void;
+
+  // Maximum Power Even/Odd Engine (auto-trader + stats dashboard)
+  engine: UseEvenOddAutoTraderReturn;
+  engineEnabled: boolean;
+  setEngineEnabled: (next: boolean) => void;
+  engineBaseStake: number;
+  setEngineBaseStake: (value: number) => void;
+  engineMultiplier: number;
+  setEngineMultiplier: (value: number) => void;
+  engineTargetProfit: number;
+  setEngineTargetProfit: (value: number) => void;
+  engineStopLoss: number;
+  setEngineStopLoss: (value: number) => void;
+
   // Branding (used by preview route; no-op in the real app)
   logoSrc?: string;
   appName?: string;
@@ -162,6 +182,17 @@ export function DigitsView({
   buyResult,
   buyError,
   clearBuyResult,
+  engine,
+  engineEnabled,
+  setEngineEnabled,
+  engineBaseStake,
+  setEngineBaseStake,
+  engineMultiplier,
+  setEngineMultiplier,
+  engineTargetProfit,
+  setEngineTargetProfit,
+  engineStopLoss,
+  setEngineStopLoss,
   logoSrc,
   appName,
   showAppName,
@@ -196,6 +227,27 @@ export function DigitsView({
   const { localize } = useAppTranslations();
   const digitTradeTypeOptions = getDigitTradeTypeOptions(localize);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+
+  // Maximum Power Even/Odd Engine dashboard — shown on every layout (no-code
+  // and standard, mobile and desktop) above the trading controls. Hidden in
+  // edit mode so it never becomes part of the no-code canvas.
+  const isAuthenticated = authState === 'authenticated';
+  const engineDashboard = !editMode ? (
+    <EvenOddDashboard
+      engine={engine}
+      enabled={engineEnabled}
+      onToggleEnabled={setEngineEnabled}
+      baseStake={engineBaseStake}
+      onBaseStakeChange={setEngineBaseStake}
+      martingaleMultiplier={engineMultiplier}
+      onMartingaleMultiplierChange={setEngineMultiplier}
+      targetProfit={engineTargetProfit}
+      onTargetProfitChange={setEngineTargetProfit}
+      stopLoss={engineStopLoss}
+      onStopLossChange={setEngineStopLoss}
+      isAuthenticated={isAuthenticated}
+    />
+  ) : null;
 
   // Logged-out Buy opens the login/sign-up prompt instead of sending a buy that
   // would fail with a "Purchase Failed" toast. One gate covers every Buy
@@ -361,6 +413,7 @@ export function DigitsView({
           /* No-code mobile layout: a single, reorderable column of blocks. */
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
             <div className="mx-auto flex w-full max-w-md flex-col gap-3 px-3 py-3">
+              {engineDashboard}
               {isLoading ? <Skeleton className="h-[420px] w-full rounded-xl" /> : renderConfigurable()}
             </div>
           </div>
@@ -389,6 +442,7 @@ export function DigitsView({
              lives in the builder's phone viewport, which renders the single
              mobile column. */
           <div className="flex w-full max-w-5xl mx-auto flex-col px-4 py-4 pb-24">
+            {engineDashboard}
             {isLoading ? (
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_440px]">
                 <Skeleton className="h-[420px] w-full rounded-xl" />
@@ -413,6 +467,7 @@ export function DigitsView({
       ) : isMobile ? (
         /* Standard mobile layout (unchanged): trade type chips + main card. */
         <div className="flex w-full max-w-7xl mx-auto flex-col px-3 py-2 sm:px-4 sm:py-4 gap-2 sm:gap-3 pb-10">
+          {engineDashboard}
           {isLoading ? (
             <>
               {/* Trade type chips skeleton */}
@@ -501,6 +556,7 @@ export function DigitsView({
            look identical. The `lg:` guard plays the same first-paint role as
            in the no-code grid (useIsMobile initialises to false). */
         <div className="flex w-full max-w-5xl mx-auto flex-col px-4 py-4 pb-24">
+          {engineDashboard}
           {isLoading ? (
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_440px]">
               <Skeleton className="h-[420px] w-full rounded-xl" />

@@ -7,7 +7,9 @@
  * (/edit) so the editor preview is fully live.
  */
 
+import { useState } from 'react';
 import { useDigitsTrading } from '../hooks/use-digits-trading';
+import { useEvenOddAutoTrader } from '../hooks/use-even-odd-auto-trader';
 import { useDerivWSContext } from '@/components/custom/deriv-ws-provider';
 import { useLogoSrc } from '@/components/custom/logo-src-provider';
 import { DigitsView } from './digits-view';
@@ -48,6 +50,28 @@ export function LiveDigits({
     onAuthWSFailed: logout,
   });
 
+  // ── Maximum Power Even/Odd Engine (Pattern Flip Disruptor + Martingale) ──
+  const [engineEnabled, setEngineEnabled] = useState(false);
+  const [engineBaseStake, setEngineBaseStake] = useState(10);
+  const [engineMultiplier, setEngineMultiplier] = useState(2.1);
+  const [engineTargetProfit, setEngineTargetProfit] = useState(0);
+  const [engineStopLoss, setEngineStopLoss] = useState(0);
+
+  const engine = useEvenOddAutoTrader({
+    ws,
+    isConnected,
+    isAuthenticated: authState === 'authenticated',
+    activeSymbol: trading.activeSymbol?.underlying_symbol ?? null,
+    pipSize: trading.pipSize,
+    prices: trading.enginePrices,
+    currentTick: trading.currentTick,
+    enabled: engineEnabled,
+    baseStake: engineBaseStake,
+    martingaleMultiplier: engineMultiplier,
+    targetProfit: engineTargetProfit,
+    stopLoss: engineStopLoss,
+  });
+
   return (
     <DigitsView
       authState={authState}
@@ -70,6 +94,8 @@ export function LiveDigits({
       lastDigit={trading.lastDigit}
       digitStats={trading.digitStats}
       pipSize={trading.pipSize}
+      enginePrices={trading.enginePrices}
+      currentTickEpoch={trading.currentTickEpoch}
       tradeType={trading.tradeType}
       setTradeType={trading.setTradeType}
       contractMode={trading.contractMode}
@@ -88,6 +114,17 @@ export function LiveDigits({
       buyResult={trading.buyResult}
       buyError={trading.buyError}
       clearBuyResult={trading.clearBuyResult}
+      engine={engine}
+      engineEnabled={engineEnabled}
+      setEngineEnabled={setEngineEnabled}
+      engineBaseStake={engineBaseStake}
+      setEngineBaseStake={setEngineBaseStake}
+      engineMultiplier={engineMultiplier}
+      setEngineMultiplier={setEngineMultiplier}
+      engineTargetProfit={engineTargetProfit}
+      setEngineTargetProfit={setEngineTargetProfit}
+      engineStopLoss={engineStopLoss}
+      setEngineStopLoss={setEngineStopLoss}
       appConfig={appConfig}
       editMode={editMode}
       onSelect={onSelect}

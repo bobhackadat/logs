@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useActiveSymbols, useTicks } from '@deriv/core';
 import type { DerivWS, ActiveSymbol, Tick, DurationLimits, ContractInfo } from '@deriv/core';
@@ -35,6 +35,10 @@ export interface UseBaseTradingReturn {
   /** Raw price history — useful for chart rendering and stat computation. */
   prices: number[];
   pipSize: number;
+  /** Last-10-tick rolling window maintained from live WebSocket ticks. */
+  enginePrices: number[];
+  /** Latest tick epoch — identity key for per-tick engine loops. */
+  currentTickEpoch: number | null;
   contracts: ContractInfo[];
   contractsAvailable: boolean;
   durationLimits: DurationLimits;
@@ -83,7 +87,29 @@ export function useBaseTrading({
     isLoading: symbolsLoading,
   } = useActiveSymbols(ws, isConnected, contractTypes);
 
-  const { currentTick, prices, pipSize } = useTicks(ws, isConnected, activeSymbol);
+  const { currentTick, prices: tickPrices, pipSize } = useTicks(ws, isConnected, activeSymbol);
+
+  // Rolling window of the last 10 ticks maintained from real-time WebSocket
+  // tick events. The engine reads this synchronously (via ref) so every single
+  // tick is captured for the Pattern Flip Disruptor without render lag.
+  const tickWindowRef = useRef<number[]>([]);
+  const [tickWindowVersion, setTickWindowVersion] = useState(0);
+  useEffect(() => {
+    if (!currentTick) return;
+    tickWindowRef.current = [...tickWindowRef.current, currentTick.quote].slice(-10);
+    setTickWindowVersion((v) => v + 1);
+  }, [currentTick]);
+  // Reset the rolling window when the symbol stream restarts.
+  useEffect(() => {
+    tickWindowRef.current = [];
+  }, [activeSymbol?.underlying_symbol]);
+  const enginePrices = useMemo(
+    () => tickWindowRef.current.slice(-10),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- version bumps on every captured tick
+    [tickWindowVersion]
+  );
+  // Fall back to the history-backed prices until enough live ticks arrive.
+  const prices = enginePrices.length >= 2 ? enginePrices : tickPrices;
 
   // Surface WS-level errors as toasts. Buy and sell errors are handled by
   // their own hooks and are excluded here to avoid double-reporting.
@@ -147,6 +173,8 @@ export function useBaseTrading({
     selectSymbol,
     currentTick,
     prices,
+    enginePrices,
+    currentTickEpoch: currentTick?.epoch ?? null,
     pipSize,
     contracts,
     contractsAvailable,

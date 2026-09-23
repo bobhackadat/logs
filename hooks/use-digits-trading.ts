@@ -30,6 +30,10 @@ interface UseDigitsTradingReturn {
   currentTick: Tick | null;
   lastDigit: number | null;
   digitStats: DigitStats;
+  /** Last-10-tick rolling window (live WebSocket ticks) for the engine. */
+  enginePrices: number[];
+  /** Latest tick epoch — identity key for per-tick engine loops. */
+  currentTickEpoch: number | null;
   tradeType: TradeType;
   setTradeType: (type: TradeType) => void;
   contractMode: ContractMode;
@@ -72,6 +76,8 @@ export function useDigitsTrading({ ws, isConnected, isExhausted, isAuthenticated
     selectSymbol,
     currentTick,
     prices,
+    enginePrices,
+    currentTickEpoch,
     pipSize,
     contractsAvailable,
     durationLimits,
@@ -170,6 +176,8 @@ export function useDigitsTrading({ ws, isConnected, isExhausted, isAuthenticated
     currentTick,
     lastDigit,
     digitStats,
+    enginePrices,
+    currentTickEpoch,
     tradeType,
     setTradeType,
     contractMode,
